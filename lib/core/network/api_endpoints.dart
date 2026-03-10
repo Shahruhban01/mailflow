@@ -1,6 +1,9 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class ApiEndpoints {
   ApiEndpoints._();
-  static const baseUrl = 'https://developerruhban.com/services/webmail/api';
+  // static const baseUrl = 'https://developerruhban.com/services/webmail/api';
+  static String get baseUrl => dotenv.env['API_BASE_URL'] ?? '';
 
   // Auth
   static const login           = '/auth/login.php';

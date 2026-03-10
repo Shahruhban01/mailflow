@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
-import '../../../models/template_model.dart';
+// import '../../../models/template_model.dart';
 import '../../../services/email_service.dart';
 
 final emailServiceProvider = Provider<EmailService>((ref) {
