@@ -1,4 +1,4 @@
-package com.example.mailflow
+package com.developerruhban.webmail
 
 import io.flutter.embedding.android.FlutterActivity
 
