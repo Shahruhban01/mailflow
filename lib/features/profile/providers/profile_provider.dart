@@ -1,8 +1,8 @@
-// import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../models/user_model.dart';
 import '../../../services/storage_service.dart';
+import '../../auth/providers/auth_provider.dart';
 
 class ProfileState {
   final bool isLoading;
@@ -30,33 +30,69 @@ class ProfileState {
 class ProfileNotifier extends StateNotifier<ProfileState> {
   final ApiClient _client;
 
-  ProfileNotifier(this._client) : super(const ProfileState());
+  // Plain callbacks — zero Riverpod types inside the class
+  final void Function(UserModel)  _onUserUpdated;
+  final UserModel?                _currentUser;
+
+  ProfileNotifier({
+    required ApiClient client,
+    required void Function(UserModel) onUserUpdated,
+    required UserModel? currentUser,
+  })  : _client       = client,
+        _onUserUpdated = onUserUpdated,
+        _currentUser   = currentUser,
+        super(const ProfileState());
 
   Future<void> updateProfile({
     required String name,
     String? signature,
   }) async {
-    state = state.copyWith(isLoading: true);
+    final prev = _currentUser;
+
+    // ── Optimistic update — instant, silent ──
+    if (prev != null) {
+      final optimistic = UserModel(
+        id:        prev.id,
+        email:     prev.email,
+        createdAt: prev.createdAt,
+        name:      name,
+        signature: signature ?? prev.signature,
+      );
+      _onUserUpdated(optimistic);
+      await StorageService.saveUser(optimistic);
+    }
+
+    // ── Background sync ──
     try {
       final res = await _client.post(
         '/user/update.php',
         data: {
           'name':      name,
-          'signature': signature,
+          'signature': signature ?? prev?.signature ?? '',
         },
       );
-      final user = UserModel.fromJson(
+      final confirmed = UserModel.fromJson(
         res.data['user'] as Map<String, dynamic>,
       );
-      await StorageService.saveUser(user);
-      state = state.copyWith(
-        isLoading: false,
-        success: 'Profile updated successfully.',
-      );
+      _onUserUpdated(confirmed);
+      await StorageService.saveUser(confirmed);
+      state = state.copyWith(success: 'Saved.');
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
-      rethrow; // so the UI catch block also gets it
+      // ── Rollback ──
+      if (prev != null) {
+        _onUserUpdated(prev);
+        await StorageService.saveUser(prev);
+      }
+      state = state.copyWith(error: e.toString());
+      rethrow;
     }
+  }
+
+  Future<void> updateSignatureOnly(String signature) async {
+    await updateProfile(
+      name:      _currentUser?.name ?? '',
+      signature: signature,
+    );
   }
 
   Future<void> changePassword({
@@ -72,10 +108,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
           'new_password':     newPass,
         },
       );
-      state = state.copyWith(
-        isLoading: false,
-        success: 'Password changed successfully.',
-      );
+      state = state.copyWith(isLoading: false, success: 'Password changed.');
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
       rethrow;
@@ -83,7 +116,27 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
   }
 }
 
+// ── Provider ──
 final profileProvider =
     StateNotifierProvider<ProfileNotifier, ProfileState>((ref) {
-  return ProfileNotifier(ref.read(apiClientProvider));
+  // Extract everything as plain values — no Ref stored anywhere
+  final client = ref.read(apiClientProvider);
+
+  final authState   = ref.read(authProvider);
+  final currentUser = authState is AuthSuccess ? authState.user : null;
+
+  // Capture notifier as a plain function pointer
+  // This avoids any generic type mismatch entirely
+  void onUserUpdated(UserModel u) {
+    // Read notifier lazily inside callback — safe, no type stored
+    try {
+      ref.read(authProvider.notifier).updateUser(u);
+    } catch (_) {}
+  }
+
+  return ProfileNotifier(
+    client:        client,
+    onUserUpdated: onUserUpdated,
+    currentUser:   currentUser,
+  );
 });

@@ -8,11 +8,13 @@ final authServiceProvider = Provider<AuthService>((ref) {
   return AuthService(ref.read(apiClientProvider));
 });
 
-// Auth state
 sealed class AuthState {}
 class AuthInitial   extends AuthState {}
 class AuthLoading   extends AuthState {}
-class AuthSuccess   extends AuthState { final UserModel user; AuthSuccess(this.user); }
+class AuthSuccess   extends AuthState {
+  final UserModel user;
+  AuthSuccess(this.user);
+}
 class AuthError     extends AuthState { final String msg; AuthError(this.msg); }
 class AuthLoggedOut extends AuthState {}
 
@@ -45,11 +47,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> register(String name, String email, String password) async {
     state = AuthLoading();
     try {
-      final user = await _service.register(name: name, email: email, password: password);
+      final user = await _service.register(
+        name: name, email: email, password: password,
+      );
       state = AuthSuccess(user);
     } catch (e) {
       state = AuthError(e.toString());
     }
+  }
+
+  // ── Silent update — no loading state shown ──
+  void updateUser(UserModel user) {
+    state = AuthSuccess(user);
   }
 
   Future<void> logout() async {

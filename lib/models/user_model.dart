@@ -14,26 +14,26 @@ class UserModel {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
-        id: int.parse(json['id'].toString()), // handles both "1" and 1
-        name: json['name'] as String,
-        email: json['email'] as String,
-        signature: json['signature'] as String?,
-        createdAt: json['created_at'] as String?,
-      );
+    id:        int.parse(json['id'].toString()),          // handles "1" or 1
+    name:      json['name'].toString(),
+    email:     json['email'].toString(),
+    signature: json['signature']?.toString(),             // nullable safe
+    createdAt: json['created_at']?.toString(),            // nullable safe
+  );
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'email': email,
-        'signature': signature,
-        'created_at': createdAt,
-      };
+    'id':         id,
+    'name':       name,
+    'email':      email,
+    'signature':  signature,
+    'created_at': createdAt,
+  };
 
   UserModel copyWith({String? name, String? signature}) => UserModel(
-        id: id,
-        email: email,
-        name: name ?? this.name,
-        signature: signature ?? this.signature,
-        createdAt: createdAt,
-      );
+    id:        id,
+    email:     email,
+    createdAt: createdAt,
+    name:      name      ?? this.name,
+    signature: signature ?? this.signature,
+  );
 }
